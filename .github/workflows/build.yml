@@ -1,42 +1,38 @@
 name: Build 3105
 
-on:
+on: 
   workflow_dispatch:
 
-jobs:
-  build:
+jobs: 
+  build: 
     runs-on: macos-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Giải nén source
         run: |
-          # Kiểm tra xem file zip có tồn tại không
+          unzip -o 3105-1.0.1.zip
+          echo "--- Danh sách thư mục gốc ---"
           ls -la
-          # Nếu file zip nằm trong thư mục con, hãy sửa đường dẫn ở đây
-          unzip 3105-1.0.1.zip
-          ls -la
-          # Kiểm tra tên thư mục sau khi giải nén
-          ls -la 3105-1.0.1/
+          echo "--- Danh sách thư mục 3105-1.0.1 ---"
+          ls -la 3105-1.0.1/ || echo "Không tìm thấy thư mục 3105-1.0.1"
 
-      # (Tùy chọn) Cài đặt CocoaPods nếu dự án của bạn dùng Pods
-      # - name: Install CocoaPods
-      #   run: |
-      #     cd 3105-1.0.1
-      #     pod install --repo-update
+      - name: Kiểm tra Scheme có sẵn
+        run: |
+          cd 3105-1.0.1
+          echo "--- Liệt kê các scheme có sẵn ---"
+          xcodebuild -project ThreeOneOSFive.xcodeproj -list
 
       - name: Build Release
         run: |
           cd 3105-1.0.1
-          # LƯU Ý: Thay 'ThreeOneOSFive' bằng tên Scheme chính xác trong Xcode của bạn
-          # Thêm -destination để tránh lỗi thiết bị
+          # Sửa tên scheme cho khớp với project. Nếu tên khác, hãy thay đổi ở đây.
           xcodebuild -project ThreeOneOSFive.xcodeproj \
                      -scheme ThreeOneOSFive \
                      -configuration Release \
                      -sdk iphoneos \
-                     -destination 'generic/platform=iOS' \
                      CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGNING_ALLOWED=NO \
@@ -46,14 +42,32 @@ jobs:
       - name: Tạo IPA từ .xcarchive
         run: |
           cd 3105-1.0.1
+          
+          # Tìm file .app thực tế được tạo ra trong archive
+          APP_PATH=$(find build/3105.xcarchive/Products/Applications -name "*.app" -maxdepth 1 | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "LỖI: Không tìm thấy file .app trong archive!"
+            exit 1
+          fi
+          
+          echo "Đã tìm thấy app tại: $APP_PATH"
+          
+          # Tạo thư mục Payload và copy app vào
           mkdir -p Payload
-          # Kiểm tra xem file .app có tồn tại không trước khi copy
-          ls -la build/3105.xcarchive/Products/Applications/
-          cp -R build/3105.xcarchive/Products/Applications/*.app Payload/
-          zip -r build/3105.ipa Payload/
+          cp -R "$APP_PATH" Payload/
+          
+          # Lấy tên file .app để đặt tên cho IPA (không cần phần mở rộng)
+          APP_NAME=$(basename "$APP_PATH" .app)
+          
+          # Nén thành IPA
+          zip -r "build/${APP_NAME}.ipa" Payload/
+          
+          echo "Đã tạo IPA: build/${APP_NAME}.ipa"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: 3105.ipa
+          name: 3105-ipa
+          # Đường dẫn này sẽ tìm tất cả file .ipa trong thư mục build
           path: 3105-1.0.1/build/*.ipa
