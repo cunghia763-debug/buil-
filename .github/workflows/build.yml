@@ -1,44 +1,59 @@
 name: Build 3105
 
-on: 
-workflow_dispatch:
+on:
+  workflow_dispatch:
 
-jobs: 
-build: 
-runs-on: macos-latest
+jobs:
+  build:
+    runs-on: macos-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-  - name: Giải nén source
-    run: |
-      unzip 3105-1.0.1.zip
-      ls -la
-      ls -la 3105-1.0.1/
+      - name: Giải nén source
+        run: |
+          # Kiểm tra xem file zip có tồn tại không
+          ls -la
+          # Nếu file zip nằm trong thư mục con, hãy sửa đường dẫn ở đây
+          unzip 3105-1.0.1.zip
+          ls -la
+          # Kiểm tra tên thư mục sau khi giải nén
+          ls -la 3105-1.0.1/
 
-  - name: Build Release
-    run: |
-      cd 3105-1.0.1
-      xcodebuild -project ThreeOneOSFive.xcodeproj \
-                 -scheme 3105 \
-                 -configuration Release \
-                 -sdk iphoneos \
-                 CODE_SIGN_IDENTITY="" \
-                 CODE_SIGNING_REQUIRED=NO \
-                 CODE_SIGNING_ALLOWED=NO \
-                 clean archive \
-                 -archivePath build/3105.xcarchive
+      # (Tùy chọn) Cài đặt CocoaPods nếu dự án của bạn dùng Pods
+      # - name: Install CocoaPods
+      #   run: |
+      #     cd 3105-1.0.1
+      #     pod install --repo-update
 
-  - name: Tạo IPA từ .xcarchive
-    run: |
-      cd 3105-1.0.1
-      mkdir -p Payload
-      cp -R build/3105.xcarchive/Products/Applications/3105.app Payload/
-      zip -r build/3105.ipa Payload/
+      - name: Build Release
+        run: |
+          cd 3105-1.0.1
+          # LƯU Ý: Thay 'ThreeOneOSFive' bằng tên Scheme chính xác trong Xcode của bạn
+          # Thêm -destination để tránh lỗi thiết bị
+          xcodebuild -project ThreeOneOSFive.xcodeproj \
+                     -scheme ThreeOneOSFive \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -destination 'generic/platform=iOS' \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     clean archive \
+                     -archivePath build/3105.xcarchive
 
-  - name: Upload IPA
-    uses: actions/upload-artifact@v4
-    with:
-      name: 3105.ipa
-      path: 3105-1.0.1/build/*.ipa
+      - name: Tạo IPA từ .xcarchive
+        run: |
+          cd 3105-1.0.1
+          mkdir -p Payload
+          # Kiểm tra xem file .app có tồn tại không trước khi copy
+          ls -la build/3105.xcarchive/Products/Applications/
+          cp -R build/3105.xcarchive/Products/Applications/*.app Payload/
+          zip -r build/3105.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3105.ipa
+          path: 3105-1.0.1/build/*.ipa
